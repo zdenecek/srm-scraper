@@ -15,7 +15,7 @@ NEWSPIDER_MODULE = 'sreality_scraper.spiders'
 MONGODB_HOST = 'localhost'  # Change in prod
 MONGODB_PORT = 27017  # Change in prod
 MONGODB_DB = "sreality"  # Change in prod
-MONGODB_COLLECTION = "home"
+MONGODB_COLLECTION = "homes"
 MONGODB_USERNAME = ""  # Change in prod
 MONGODB_PASSWORD = ""  # Change in prod
 
@@ -64,7 +64,6 @@ ROBOTSTXT_OBEY = False
 
 DOWNLOADER_MIDDLEWARES = {
     'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
-    'scrapy_user_agents.middlewares.RandomUserAgentMiddleware': 400,
 }
 
 # Enable or disable extensions
