@@ -23,15 +23,15 @@ class EstatesSpider(ListingsCounterSpider):
     }
 
 
-    def handle(self, deal_code, prop_code, count):
+    def handle(self, deal, prop, count):
 
-        if prop_code not in self.include or deal_code not in self.include[prop_code]:
+        if prop not in self.include or deal not in self.include[prop]:
             
-            self.logger.info(f"Skipping {prop_code} {deal_code}")
+            self.logger.info(f"Skipping {prop} {deal}")
             return
-
-        self.logger.info(f"Crawling {prop_code} {deal_code} {count}")
-        urls = get_catalog_uris(deal_code, prop_code, count)
+        
+        self.logger.info(f"Crawling {prop} {deal} {count}")
+        urls = get_catalog_uris(deal, prop, count)
 
         for url in urls:
             yield scrapy.Request(url, callback=self.parse_estates)
@@ -47,8 +47,8 @@ class EstatesSpider(ListingsCounterSpider):
         jsonresponse = response.json()        
         item = {} # empty item as distionary
         try:             
-            item['propCode'] = property_codes_names[ jsonresponse['seo']['category_main_cb'] ]
-            item['dealCode'] = deal_codes_names[ jsonresponse['seo']['category_type_cb'] ]
+            item['prop'] = jsonresponse['seo']['category_main_cb']
+            item['deal'] =  jsonresponse['seo']['category_type_cb']
             
             item['apiUrl'] = response.url
             item['id'] = response.url.split('/estates/')[1]
@@ -60,7 +60,8 @@ class EstatesSpider(ListingsCounterSpider):
                 item['url'] = sreality.get_detail_url_from_seo_object(jsonresponse['seo'], item['id'])
 
             if jsonresponse['price_czk']:
-                item['price'] =  jsonresponse['price_czk']['value']
+                if jsonresponse['price_czk']['value']:
+                    item['price'] =  jsonresponse['price_czk']['value'].replace(' ', '')
                 if jsonresponse['price_czk']['unit']:
                     item['priceUnit'] =  jsonresponse['price_czk']['unit']
             else:
@@ -73,24 +74,21 @@ class EstatesSpider(ListingsCounterSpider):
             item["address"] = jsonresponse['locality']['value']
 
             # gather images
-            item['images'] = []
+            if  jsonresponse['_embedded']['images']:
+                item['images'] = []
             
-            for images in jsonresponse['_embedded']['images']:                 
+            for images in jsonresponse['_embedded']['images']:
+
+                obj = {}                 
                 # if images['_links']['dynamicDown']:
-                #     item['images'].append( images['_links']['dynamicDown']['href'])
-                #     continue
-                if images['_links']['gallery']:
-                    item['images'].append(images['_links']['gallery']['href'])
-                    continue
-                if images['_links']['self']:
-                    item['images'].append(images['_links']['self']['href'])
-                    continue
+                # if images['_links']['gallery']:
                 # if images['_links']['dynamicUp']:
-                #     item['images'].append(images['_links']['dynamicUp']['href'])
-                #     continue
+                if images['_links']['self']:
+                    obj['self'] = images['_links']['self']['href']
                 if images['_links']['view']:
-                    item['images'].append(images['_links']['view']['href'])
-                    continue
+                    obj['view'] = images['_links']['view']['href']
+                    
+                item['images'].append(obj)
 
 
             # miscellenious items       
@@ -98,10 +96,7 @@ class EstatesSpider(ListingsCounterSpider):
                 item['items'] = {}
 
                 for i in jsonresponse['items']:
-                    if i['name'] == "Cena za m²":
-                        item['pricePerMeter'] = i['value']
-                    
-                    elif  isinstance(i['value'] , list):
+                    if  isinstance(i['value'] , list):
                         item['items'][i['name']]= ''
                         for j in i['value']:
                             item['items'][i['name']] += j['value'] + ', '

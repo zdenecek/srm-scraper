@@ -6,6 +6,7 @@
 
 # useful for handling different item types with a single interface
 from datetime import datetime
+import certifi
 from itemadapter import ItemAdapter
 from pymongo import MongoClient, InsertOne,  ReplaceOne
 
@@ -17,14 +18,13 @@ class SaveToDbPipeline:
 
     def open_spider(self, spider):
         self.spider = spider
-        self.client = MongoClient(host= spider.settings.get("MONGODB_HOST"))
-        self.db = self.client[ spider.settings.get("MONGODB_DB")]
+        self.client = MongoClient(spider.settings.get("MONGODB_CONNECTION_STRING"), tlsCAFile=certifi.where())
+        self.db = self.client[spider.settings.get("MONGODB_DB")]
         self.coll = self.db[self.collection_name]
-        self.date = str(datetime.now())
+        self.date = str(datetime.now().strftime('%Y-%m-%d'))
 
         self.buffer = []
         self.item_counter = 1
-
 
 
     def close_spider(self, spider):
@@ -39,7 +39,6 @@ class SaveToDbPipeline:
         else:
             self.update(dict(item), current)
 
-        
         self.flush_buffer()
         self.item_counter += 1
 
@@ -47,7 +46,8 @@ class SaveToDbPipeline:
 
     def update(self, item, old_item):
         item['priceHistory'] = old_item['priceHistory']
-        item['priceHistory'][self.date] = item['price']
+        if old_item['price'] != item['price']:
+            item['priceHistory'][self.date] = item['price']
         item['lastUpdate'] = self.date
 
         self.buffer.append(ReplaceOne({'_id': old_item['_id']}, item))

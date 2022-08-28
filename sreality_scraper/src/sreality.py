@@ -80,4 +80,4 @@ def get_detail_url_from_seo_object(seo_object, id):
 
 
 def get_catalog_uris(deal, property_type, count, per_page=100):
-    return [f'https://www.sreality.cz/api/cs/v2/estates?category_main_cb={property_type}&category_type_cb={deal}&locality_country_id=10001&per_page={per_page}&page={x}' for x in range(count//per_page + 1)]
+    return [f'https://www.sreality.cz/api/cs/v2/estates?category_main_cb={property_codes[property_type]}&category_type_cb={deal_codes[deal]}&locality_country_id=10001&per_page={per_page}&page={x}' for x in range(count//per_page + 1)]

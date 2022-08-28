@@ -1,3 +1,5 @@
+import os
+
 # Scrapy settings for sreality_scraper project
 #
 # For simplicity, this file contains only settings considered important or
@@ -12,12 +14,8 @@ BOT_NAME = 'sreality_scraper'
 SPIDER_MODULES = ['sreality_scraper.spiders']
 NEWSPIDER_MODULE = 'sreality_scraper.spiders'
 
-MONGODB_HOST = 'localhost'  # Change in prod
-MONGODB_PORT = 27017  # Change in prod
-MONGODB_DB = "sreality"  # Change in prod
-MONGODB_COLLECTION = "homes"
-MONGODB_USERNAME = ""  # Change in prod
-MONGODB_PASSWORD = ""  # Change in prod
+MONGODB_CONNECTION_STRING=os.getenv('MONGODB_CONNECTION_STRING')
+MONGODB_DB = "sreality"
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
