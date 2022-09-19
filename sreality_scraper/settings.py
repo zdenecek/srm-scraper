@@ -16,6 +16,7 @@ NEWSPIDER_MODULE = 'sreality_scraper.spiders'
 
 MONGODB_CONNECTION_STRING=os.getenv('MONGODB_CONNECTION_STRING')
 MONGODB_DB = "sreality"
+LOG_DIR = os.getenv('LOG_DIR')
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent

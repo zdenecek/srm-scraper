@@ -7,7 +7,6 @@
 # useful for handling different item types with a single interface
 from datetime import datetime
 import certifi
-from itemadapter import ItemAdapter
 from pymongo import MongoClient, InsertOne,  ReplaceOne
 
 class SaveToDbPipeline:
@@ -21,7 +20,8 @@ class SaveToDbPipeline:
         self.client = MongoClient(spider.settings.get("MONGODB_CONNECTION_STRING"), tlsCAFile=certifi.where())
         self.db = self.client[spider.settings.get("MONGODB_DB")]
         self.coll = self.db[self.collection_name]
-        self.date = str(datetime.now().strftime('%Y-%m-%d'))
+        self.date = datetime.now()
+        self.datestr = self.date.strftime('%Y-%m-%d')
 
         self.buffer = []
         self.item_counter = 1
@@ -46,18 +46,34 @@ class SaveToDbPipeline:
 
     def update(self, item, old_item):
         item['priceHistory'] = old_item['priceHistory']
+        if 'updateHistory' not in item:         
+            item['updateHistory'] = {}
+
+
         if old_item['price'] != item['price']:
-            item['priceHistory'][self.date] = item['price']
-        item['lastUpdate'] = self.date
+            item['priceHistory'][self.datestr] = item['price']
+            item['updateHistory'][self.datestr] = 2
+        item['lastUpdate'] = self.datestr
+
+        first_price = item['priceHistory'].values()[0]
+        item['priceDrop'] = (first_price - item['price'] ) / first_price 
+
+        first_date = datetime.strptime(item['priceHistory'].keys()[0], '%Y-%m-%d')
+        item['age'] = (self.date - first_date).days
 
         self.buffer.append(ReplaceOne({'_id': old_item['_id']}, item))
 
     def insert(self, item):
 
         item['priceHistory'] = {
-            self.date: item['price']
+            self.datestr: item['price']
         }
-        item['lastUpdate'] = self.date
+        item['updateHistory'] = {
+            self.datestr: 1
+        }
+        item['lastUpdate'] = self.datestr
+        item['priceDrop'] = 0
+        item['age'] = 0
 
         self.buffer.append(InsertOne(item))
 

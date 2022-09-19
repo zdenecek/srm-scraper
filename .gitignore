@@ -3,4 +3,7 @@ __pycache__
 *.jl
 .env
 
+*.log
 logs/
+
+venv/
