@@ -1,11 +1,12 @@
+from datetime import datetime
 import scrapy
-import json
-from sreality_scraper.src.sreality import get_catalog_uris, deal_codes, property_codes, deal_codes_names, property_codes_names
+from scrapy.exceptions import DropItem
+from sreality_scraper.src.sreality import get_catalog_uris
 import sreality_scraper.src.sreality as sreality
 import sreality_scraper.src.utils as utils
 from sreality_scraper.spiders.listingsCounterSpider import ListingsCounterSpider
-from datetime import datetime
 import os
+
 
 class EstatesSpider(ListingsCounterSpider):
     name = 'estates'
@@ -15,17 +16,24 @@ class EstatesSpider(ListingsCounterSpider):
             'sreality_scraper.pipelines.SaveToDbPipeline': 300,
         },
         'LOG_LEVEL': 'INFO',
-        'LOG_FILE': os.path.join(os.getenv("LOG_DIR"), "estates.log"),
+        'LOG_FILE': os.path.join(os.getenv("LOG_DIR"), f"estates-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.log"),
     }
 
     include = {
-        'house': ['sell']
+        'house': ['sell', 'rent', 'auction', 'shares'],
+        'apartment': ['sell', 'rent', 'auction', 'shares'],
+        'commercial': ['sell', 'rent', 'auction', 'shares'],
+        'parcel': ['sell', 'rent', 'auction', 'shares'],
+        'other': ['sell', 'rent', 'auction', 'shares'],
     }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.callback = self.handle
 
     def handle(self, deal, prop, count):
 
         if prop not in self.include or deal not in self.include[prop]:
-
             self.logger.info(f"Skipping {prop} {deal}")
             return
 
@@ -44,14 +52,16 @@ class EstatesSpider(ListingsCounterSpider):
 
     def parse_detail_page(self, response):
         jsonresponse = response.json()
-        item = {}  
+        item = {}
         try:
             self.scrape_meta_data(response, jsonresponse, item)
             self.scrape_price_data(jsonresponse, item)
             self.scrape_locality_data(jsonresponse, item)
             self.scrape_image_data(jsonresponse, item)
-            self.scrape_items_data(jsonresponse, item)            
+            self.scrape_items_data(jsonresponse, item)
 
+        except DropItem:
+            return None
         except Exception as e:
             self.logger.exception(f'Exception {e}. for url: {response.url}')
 
@@ -60,6 +70,11 @@ class EstatesSpider(ListingsCounterSpider):
     def scrape_meta_data(self, response, jsonresponse, item):
         item['prop'] = jsonresponse['seo']['category_main_cb']
         item['deal'] = jsonresponse['seo']['category_type_cb']
+        if 'category_sub_cb' in jsonresponse['seo']:
+            item['sub'] = jsonresponse['seo']['category_sub_cb']
+
+        if 'ownership' in jsonresponse['codeItems']:
+            item['ownership'] = jsonresponse['codeItems']['ownership']
 
         item['apiUrl'] = response.url
         item['id'] = response.url.split('/estates/')[1]
@@ -72,40 +87,63 @@ class EstatesSpider(ListingsCounterSpider):
                 jsonresponse['seo'], item['id'])
 
     def scrape_price_data(self, jsonresponse, item):
-        if jsonresponse['price_czk']:
-            if jsonresponse['price_czk']['value']:
-                item['price'] = int(
-                    ''.join(jsonresponse['price_czk']['value'].split()))
-            if jsonresponse['price_czk']['unit']:
+        if 'price_czk' in jsonresponse:
+            if 'value_raw' in jsonresponse['price_czk']:
+                item['price'] = jsonresponse['price_czk']['value_raw']
+            if 'value' in jsonresponse['price_czk'] and jsonresponse['price_czk']['value'] != '':
+                item['price'] = utils.parse_int(jsonresponse['price_czk']['value'])
+            if 'unit' in jsonresponse['price_czk']:
                 item['priceUnit'] = jsonresponse['price_czk']['unit']
+                
+        
+
 
     def scrape_locality_data(self, jsonresponse, item):
-        item['location'] = {
-            "type": "Point",
-            "coordinates": [jsonresponse['map']['lon'], jsonresponse['map']['lat']]
-        }
 
-        item["address"] = jsonresponse['locality']['value']
+        if 'locality' in jsonresponse and 'value' in jsonresponse['locality']:
+            item['address'] = jsonresponse['locality']['value']
+
+        if 'map' in jsonresponse:
+            source = jsonresponse['map']
+        else:
+            source = utils.get_closest_poi(jsonresponse)
+        
+        if source and (-180 < source['lon'] < 180 and -90 <  source['lat'] < 90):
+            item['location'] = {
+                    "type": "Point",
+                    "coordinates": [source['lon'], source['lat']]
+                }
+        else:
+            raise DropItem()
+
 
     def scrape_image_data(self, jsonresponse, item):
-        if jsonresponse['_embedded']['images']:
+        if 'images' in jsonresponse['_embedded']:
             item['images'] = []
 
-        for images in jsonresponse['_embedded']['images']:
-            obj = {}
-            if images['_links']['self']:
-                obj['self'] = images['_links']['self']['href']
-            if images['_links']['view']:
-                obj['view'] = images['_links']['view']['href']
+            for images in jsonresponse['_embedded']['images']:
+                obj = {}
+                if 'self' in images['_links']:
+                    obj['self'] = images['_links']['self']['href']
+                if 'view' in images['_links']:
+                    obj['view'] = images['_links']['view']['href']
+                if 'gallery' in images['_links']:
+                    obj['gallery'] = images['_links']['gallery']['href']
 
-            item['images'].append(obj)
+                item['images'].append(obj)
 
     def scrape_items_data(self, jsonresponse, item):
         if jsonresponse['items']:
             item['items'] = {}
 
             for i in jsonresponse['items']:
-                if isinstance(i['value'], list):
+                if i['name'] == "Cena za m²":
+                    item['pricePerMeter'] = utils.parse_int(i['value'])
+                elif i['name'] == "Užitná plocha":
+                    item['usableArea'] = utils.parse_int(i['value'])
+                elif i['name'] == "Plocha pozemku":
+                    item['landArea'] = utils.parse_int(i['value'])
+                elif isinstance(i['value'], list):
                     item['items'][i['name']] = ''
                     for j in i['value']:
                         item['items'][i['name']] += j['value'] + ', '

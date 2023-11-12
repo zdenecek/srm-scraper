@@ -15,7 +15,8 @@ SPIDER_MODULES = ['sreality_scraper.spiders']
 NEWSPIDER_MODULE = 'sreality_scraper.spiders'
 
 MONGODB_CONNECTION_STRING=os.getenv('MONGODB_CONNECTION_STRING')
-MONGODB_DB = "sreality"
+MONGODB_DB = os.getenv('MONGODB_DB')
+MONGODB_COLLECTION = os.getenv('MONGODB_COLLECTION')
 LOG_DIR = os.getenv('LOG_DIR')
 
 
@@ -74,7 +75,6 @@ DOWNLOADER_MIDDLEWARES = {
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    'sreality_scraper.pipelines.SaveToDbPipeline': 300,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)

@@ -3,13 +3,13 @@
 # category_main_cb
 # 'projects' don't have a number
 property_codes = {'apartment': 1, 'house': 2,
-                  'parcel': 3,  'comercial': 4,  'other': 5}
+                  'parcel': 3,  'commercial': 4,  'other': 5}
 property_codes_names = {1: 'apartment', 2: 'house',
-                        3: 'parcel',  4: 'comercial',  5: 'other'}
+                        3: 'parcel',  4: 'commercial',  5: 'other'}
 
 # category_type_cb
-deal_codes = {'sell': 1, 'rent': 2,  'auction': 3}
-deal_codes_names = {1: 'sell', 2: 'rent',  3: 'auction'}
+deal_codes = {'sell': 1, 'rent': 2,  'auction': 3, 'shares': 4}
+deal_codes_names = {1: 'sell', 2: 'rent',  3: 'auction', 4: 'shares'}
 
 
 category_type_cb_detail = {0: 'vse', 1: 'prodej', 2: 'pronajem',  3: 'drazby'}
